@@ -124,6 +124,8 @@ def test_profile_success(dummy_setup):
     console, client = dummy_setup
     client.user_details = {"username": "test", "email": "test@test.com", "first_name": "T", "last_name": "U",
                            "date_of_birth": "2000-01-01", "role": "student"}
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("builtins.input", lambda: None)
     main.action_profile()
     output = " ".join(console.outputs)
     assert "test" in output
@@ -132,6 +134,8 @@ def test_profile_success(dummy_setup):
 def test_profile_failure(dummy_setup):
     console, client = dummy_setup
     client.user_details = None
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("builtins.input", lambda: None)
     main.action_profile()
     output = " ".join(console.outputs)
     assert "Could not fetch" in output
@@ -276,3 +280,18 @@ def test_logout(dummy_setup):
     assert client.token is None
     output = " ".join(console.outputs)
     assert "Logged out" in output
+
+
+def test_get_auth_menu(dummy_setup):
+    console, client = dummy_setup
+    menu = main.get_auth_menu()
+    assert menu.title == "UniSpace API - Login"
+    assert len(menu._choices) == 3
+
+
+def test_get_main_menu(dummy_setup):
+    console, client = dummy_setup
+    client.user_details = {"username": "testuser"}
+    menu = main.get_main_menu()
+    assert "testuser" in menu.title
+    assert len(menu._choices) >= 5
