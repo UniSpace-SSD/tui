@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "tui"
+version = "0.1.0"
+description = ""
+authors = ["Rodo <rodo@email.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+requests = "==2.32.5"
+pytest = "^9.0.1"
+pytest-cov = "^7.0.0"
+rich = "^14.2.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
