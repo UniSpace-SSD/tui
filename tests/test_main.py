@@ -295,3 +295,61 @@ def test_get_main_menu(dummy_setup):
     menu = main.get_main_menu()
     assert "testuser" in menu.title
     assert len(menu._choices) >= 5
+
+
+def test_get_main_menu_no_user_details(dummy_setup):
+    console, client = dummy_setup
+    client.user_details = None
+    menu = main.get_main_menu()
+    assert "User" in menu.title
+    assert len(menu._choices) >= 5
+
+
+def test_action_exit(dummy_setup):
+    console, client = dummy_setup
+    with pytest.raises(SystemExit) as exc_info:
+        main.action_exit()
+    assert exc_info.value.code == 0
+    output = " ".join(console.outputs)
+    assert "Arrivederci" in output
+
+
+def test_main_loop_unauthenticated(dummy_setup, monkeypatch):
+    console, client = dummy_setup
+    client.token = None
+    call_count = [0]
+
+    def fake_run(self):
+        call_count[0] += 1
+        if call_count[0] >= 2:
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr("tui.RichTUI.run", fake_run)
+    try:
+        main.main()
+    except KeyboardInterrupt:
+        pass
+    assert call_count[0] == 2
+
+
+def test_main_loop_authenticated(dummy_setup, monkeypatch):
+    console, client = dummy_setup
+    client.token = "test_token"
+    client.user_details = None
+    call_count = [0]
+
+    def fake_run(self):
+        call_count[0] += 1
+        if call_count[0] >= 1:
+            raise KeyboardInterrupt
+
+    def fake_get_user_details():
+        return {"username": "test"}
+
+    monkeypatch.setattr("tui.RichTUI.run", fake_run)
+    monkeypatch.setattr(client, "get_user_details", fake_get_user_details)
+    try:
+        main.main()
+    except KeyboardInterrupt:
+        pass
+    assert call_count[0] == 1

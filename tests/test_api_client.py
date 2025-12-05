@@ -60,6 +60,18 @@ def test_login_success(client_session):
     assert client.token == "secret"
 
 
+def test_login_no_key_in_response(client_session):
+    client, session = client_session
+    session.next_response = DummyResponse(200, {"other": "data"})
+    assert client.login("u", "p") is False
+
+
+def test_login_exception(client_session):
+    client, session = client_session
+    session.side_effect_exception = requests.exceptions.RequestException()
+    assert client.login("u", "p") is False
+
+
 def test_login_failure(client_session):
     client, session = client_session
     session.next_response = DummyResponse(400)
@@ -133,6 +145,21 @@ def test_get_spaces_exception(client_session):
     client, session = client_session
     session.side_effect_exception = requests.exceptions.RequestException()
     assert client.get_spaces() == []
+
+
+def test_get_space_success(client_session):
+    client, session = client_session
+    b = {"id": 1, "name": "B", "address": "A", "map_image": None}
+    s = {"id": "s1", "name": "Space1", "building": b, "floor": 1, "capacity": 10, "type": "lab", "equipment": [],
+         "is_active": True}
+    session.next_response = DummyResponse(200, s)
+    assert client.get_space("s1") == s
+
+
+def test_get_space_exception(client_session):
+    client, session = client_session
+    session.side_effect_exception = requests.exceptions.RequestException()
+    assert client.get_space("s1") is None
 
 
 def test_get_my_reservations_success(client_session):
