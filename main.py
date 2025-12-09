@@ -203,8 +203,7 @@ def action_exit() -> None:
 # --- Menu ---
 def get_auth_menu() -> RichTUI:
     return (RichTUI.Builder()
-            .set_title("UniSpace API - Login")
-            .set_subtitle("Please authenticate")
+            .set_description("UniSpace API - Login", "Please authenticate")
             .add_choice("Login", action_login)
             .add_choice("Register", action_register)
             .add_choice("Exit", action_exit)
@@ -217,8 +216,7 @@ def get_main_menu() -> RichTUI:
         user_name = client.user_details.get('username', 'User')
         
     return (RichTUI.Builder()
-            .set_title(f"UniSpace Dashboard - {user_name}")
-            .set_subtitle("Main Menu")
+            .set_description(f"UniSpace Dashboard - {user_name}", "Main Menu")
             .add_choice("My Profile", action_profile)
             .add_choice("My Reservations", action_my_reservations)
             .add_choice("New Reservation", action_create_reservation)
