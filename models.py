@@ -2,6 +2,7 @@ from typing import TypedDict, Optional, List, Union
 
 # Definizione Utente
 class User(TypedDict):
+    pk: int
     username: str
     email: str
     first_name: str

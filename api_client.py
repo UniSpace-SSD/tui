@@ -26,7 +26,6 @@ class UniSpaceClient:
                 json={"username": username, "password": password},
                 headers=headers,
             )
-
             if response.status_code in (200, 201):
                 data = response.json()
                 if "key" in data:
@@ -39,9 +38,13 @@ class UniSpaceClient:
     def logout(self):
         if self.token:
             try:
-                self.session.post(f"{self.BASE_URL}/auth/logout/")
+                headers = {}
+
+                self.session.post(f"{self.BASE_URL}/auth/logout/", headers=headers)
             except requests.RequestException:
                 pass
+
+        # Pulizia lato client
         self.token = None
         self.session.headers.pop("Authorization", None)
         self.user_details = None

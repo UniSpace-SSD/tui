@@ -54,21 +54,23 @@ class RichTUI:
         self.console.print(Panel(table, title=subtitle, border_style="green"))
 
     def run(self) -> None:
-        while True:
-            self.render_menu()
+        self.render_menu()
 
-            try:
-                choice_idx = IntPrompt.ask("Choice", choices=[str(i + 1) for i in range(len(self.__choices))])
-                selected_idx = choice_idx - 1
+        try:
+            choice_idx = IntPrompt.ask(
+                "Choice",
+                choices=[str(i + 1) for i in range(len(self.__choices))]
+            )
+            selected_idx = choice_idx - 1
 
-                if 0 <= selected_idx < len(self.__choices):
-                    _, action = self.__choices[selected_idx]
-                    action()
-                else:
-                    self.console.print("[red]Invalid choice![/red]")
-            except KeyboardInterrupt:
-                self.console.print("\n[yellow]Exiting...[/yellow]")
-                return
+            if 0 <= selected_idx < len(self.__choices):
+                _, action = self.__choices[selected_idx]
+                action()
+            else:
+                self.console.print("[red]Invalid choice![/red]")
+        except KeyboardInterrupt:
+            self.console.print("\n[yellow]Exiting...[/yellow]")
+            return
 
     @dataclass
     class Builder:
