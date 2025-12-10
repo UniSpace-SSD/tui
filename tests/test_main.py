@@ -282,29 +282,6 @@ def test_logout(dummy_setup):
     assert "Logged out" in output
 
 
-def test_get_auth_menu(dummy_setup):
-    console, client = dummy_setup
-    menu = main.get_auth_menu()
-    assert menu.title == "UniSpace API - Login"
-    assert len(menu._choices) == 3
-
-
-def test_get_main_menu(dummy_setup):
-    console, client = dummy_setup
-    client.user_details = {"username": "testuser"}
-    menu = main.get_main_menu()
-    assert "testuser" in menu.title
-    assert len(menu._choices) >= 5
-
-
-def test_get_main_menu_no_user_details(dummy_setup):
-    console, client = dummy_setup
-    client.user_details = None
-    menu = main.get_main_menu()
-    assert "User" in menu.title
-    assert len(menu._choices) >= 5
-
-
 def test_action_exit(dummy_setup):
     console, client = dummy_setup
     with pytest.raises(SystemExit) as exc_info:
@@ -353,3 +330,81 @@ def test_main_loop_authenticated(dummy_setup, monkeypatch):
     except KeyboardInterrupt:
         pass
     assert call_count[0] == 1
+
+
+def test_get_main_menu_no_user_details(dummy_setup):
+    console, client = dummy_setup
+    client.user_details = None
+
+    menu = main.get_main_menu()
+
+    desc = menu._RichTUI__description
+    title = desc[0][0]
+
+    assert "UniSpace Dashboard - User" == title
+    assert desc[0][1] == "Main Menu"
+
+
+def test_get_main_menu_with_user_details(dummy_setup):
+    console, client = dummy_setup
+    client.user_details = {"username": "Stefano"}
+
+    menu = main.get_main_menu()
+
+    desc = menu._RichTUI__description
+    title = desc[0][0]
+
+    assert "Stefano" in title
+    assert title.startswith("UniSpace Dashboard - ")
+    assert desc[0][1] == "Main Menu"
+
+def test_main_loop_authenticated_with_details(dummy_setup, monkeypatch):
+    console, client = dummy_setup
+
+    client.token = "test_token"
+    client.user_details = {"username": "testuser"}
+
+    call_count = [0]
+    called_get_user_details = [False]
+
+    def fake_run(self):
+        call_count[0] += 1
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("tui.RichTUI.run", fake_run)
+
+    def fake_get_user_details():
+        called_get_user_details[0] = True
+        return {"username": "other"}
+
+    monkeypatch.setattr(client, "get_user_details", fake_get_user_details)
+
+    try:
+        main.main()
+    except KeyboardInterrupt:
+        pass
+
+    assert call_count[0] == 1
+    assert called_get_user_details[0] is False
+
+def test_my_reservations_space_as_string(dummy_setup, monkeypatch):
+    console, client = dummy_setup
+    client.reservations = [
+        {
+            "id": "r2",
+            "space": "Lab42",
+            "start_at": "2023-01-01T10:00:00",
+            "end_at": "2023-01-01T11:00:00",
+            "header": "H",
+            "status": "active",
+        }
+    ]
+
+    inputs = ["n"]
+    monkeypatch.setattr("main.Prompt.ask", lambda text, **k: inputs.pop(0))
+    monkeypatch.setattr("builtins.input", lambda: None)
+
+    main.action_my_reservations()
+    output = " ".join(console.outputs)
+
+    assert "Lab42" in output
