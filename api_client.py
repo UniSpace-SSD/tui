@@ -6,7 +6,7 @@ from models import User, Building, Space, Reservation, ApiResponse
 
 @typechecked
 class UniSpaceClient:
-    BASE_URL = "http://127.0.0.1:8000/api"
+    BASE_URL = "http://0.0.0.0:8000/api"
 
     def __init__(self):
         self.session = requests.Session()
@@ -17,12 +17,16 @@ class UniSpaceClient:
         self.token = token
         self.session.headers.update({"Authorization": f"Token {token}"})
 
-    def login(self, username, password) -> bool:
+    def login(self, username: str, password: str) -> bool:
         try:
-            response = self.session.post(f"{self.BASE_URL}/auth/login/", json={
-                "username": username,
-                "password": password
-            })
+            headers: Dict[str, str] = {}
+
+            response = self.session.post(
+                f"{self.BASE_URL}/auth/login/",
+                json={"username": username, "password": password},
+                headers=headers,
+            )
+
             if response.status_code in (200, 201):
                 data = response.json()
                 if "key" in data:
@@ -56,7 +60,14 @@ class UniSpaceClient:
 
     def register(self, data: Dict[str, Any]) -> bool:
         try:
-            response = self.session.post(f"{self.BASE_URL}/auth/registration/", json=data)
+            headers: Dict[str, str] = {}
+
+            response = self.session.post(
+                f"{self.BASE_URL}/auth/registration/",
+                json=data,
+                headers=headers,
+            )
+            
             return response.status_code == 201
         except requests.RequestException:
             return False
@@ -97,7 +108,14 @@ class UniSpaceClient:
             pass
         return []
 
-    def create_reservation(self, space_id: str, date: str, start_time: str, end_time: str, header: str) -> ApiResponse:
+    def create_reservation(
+        self,
+        space_id: str,
+        date: str,
+        start_time: str,
+        end_time: str,
+        header: str
+    ) -> ApiResponse:
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
             return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
         
@@ -125,8 +143,10 @@ class UniSpaceClient:
 
     def cancel_reservation(self, reservation_id: str) -> bool:
         try:
-            response = self.session.patch(f"{self.BASE_URL}/reservations/{reservation_id}/cancel/", json={})
+            response = self.session.patch(
+                f"{self.BASE_URL}/reservations/{reservation_id}/cancel/",
+                json={},
+            )
             return response.status_code == 200
         except requests.RequestException:
             return False
-

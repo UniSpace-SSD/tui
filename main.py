@@ -1,3 +1,4 @@
+import datetime
 import sys
 from typing import Optional, List, Dict, Any
 from rich.console import Console
@@ -34,23 +35,65 @@ def action_login() -> None:
 def action_register() -> None:
     console.print("\n[bold]Register User[/bold]")
     username = Prompt.ask("Username")
-    email = get_validated_input("Email", r"^[\w\.-]+@[\w\.-]+\.\w+$", "Invalid email format.")
-    password = Prompt.ask("Password", password=True)
-    password_conf = Prompt.ask("Confirm Password", password=True)
-    
-    if password != password_conf:
-        console.print("[red]Passwords do not match![/red]")
-        wait_enter()
-        return
+    email = get_validated_input(
+        "Email",
+        r"^[\w\.-]+@[\w\.-]+\.\w{2,}$",
+        "Invalid email format."
+    )
+
+    while True:
+        password = Prompt.ask("Password", password=True)
+        if len(password) < 8:
+            console.print("[red]Password must be at least 8 characters long.[/red]")
+            continue
+
+        password_conf = Prompt.ask("Confirm Password", password=True)
+
+        if password != password_conf:
+            console.print("[red]Passwords do not match![/red]")
+            continue
+
+        break
 
     first_name = Prompt.ask("First Name")
     last_name = Prompt.ask("Last Name")
-    dob = get_validated_input("Date of Birth (YYYY-MM-DD)", r"^\d{4}-\d{2}-\d{2}$", "Invalid format. Use YYYY-MM-DD")
-    role = Prompt.ask("Role", choices=["student", "professor"], default="student")
+
+    while True:
+        dob_str = get_validated_input(
+            "Date of Birth (YYYY-MM-DD)",
+            r"^\d{4}-\d{2}-\d{2}$",
+            "Invalid format. Use YYYY-MM-DD"
+        )
+        try:
+            dob_date = datetime.datetime.strptime(dob_str, "%Y-%m-%d").date()
+        except ValueError:
+            console.print("[red]Invalid date. Please insert a real date.[/red]")
+            continue
+
+        if dob_date > datetime.date.today():
+            console.print("[red]Date of birth cannot be in the future.[/red]")
+            continue
+
+        dob = dob_str
+        break
+
+    valid_roles = ["student", "professor"]
+    while True:
+        role = Prompt.ask("Role", choices=valid_roles, default="student")
+        role = role.lower().strip()
+        if role in valid_roles:
+            break
+        console.print(f"[red]Invalid role. Choose one of: {', '.join(valid_roles)}[/red]")
 
     data = {
-        "username": username, "email": email, "password1": password, "password2": password_conf,
-        "first_name": first_name, "last_name": last_name, "date_of_birth": dob, "role": role
+        "username": username,
+        "email": email,
+        "password1": password,
+        "password2": password_conf,
+        "first_name": first_name,
+        "last_name": last_name,
+        "date_of_birth": dob,
+        "role": role,
     }
 
     if client.register(data):
@@ -58,6 +101,7 @@ def action_register() -> None:
     else:
         console.print("[red]Registration failed.[/red]")
     wait_enter()
+
 
 
 def action_logout() -> None:
@@ -73,9 +117,6 @@ def action_profile() -> None:
         table.add_column("Field", style="cyan")
         table.add_column("Value", style="magenta")
 
-        # TypedDict doesn't support .items() like a dict at runtime reliably if it's just a structural type,
-        # but in Python 3.9+ it behaves like a dict. We cast for safety or access directly.
-        # Here we just iterate because we know the structure.
         for k, v in user.items():
             table.add_row(str(k), str(v))
         console.print(table)
@@ -106,8 +147,6 @@ def action_list_spaces() -> None:
     table.add_column("Capacity", justify="right")
 
     for s in spaces:
-        # Building might be an ID or an object depending on API depth, but assuming object based on previous code
-        # type hint says Space -> building: Building
         b_name = s['building'].get('name', 'N/A') if isinstance(s.get('building'), dict) else str(s.get('building'))
         table.add_row(b_name, s.get('name', 'Unknown'), s.get('type', 'Unknown'), str(s.get('capacity', 0)))
 
@@ -131,7 +170,6 @@ def action_my_reservations() -> None:
             start = r.get('start_at', '').replace('T', ' ')[:16]
             end = r.get('end_at', '').replace('T', ' ')[:16]
             
-            # handle Space union type (str or dict)
             space_val = r.get('space')
             space_display = space_val
             if isinstance(space_val, dict):
@@ -182,7 +220,6 @@ def action_create_reservation() -> None:
         end = get_validated_input("End Time (HH:MM)", r"^\d{2}:\d{2}$", "Invalid format. Use HH:MM")
         header = Prompt.ask("Reason (Header)")
 
-        # Client now validates internally too, but doing it here prevents bad requests
         res = client.create_reservation(space_id, date, start, end, header)
         if res['success']:
             console.print("[green]Reservation Created Successfully![/green]")
