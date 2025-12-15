@@ -4,9 +4,10 @@ from typing import Optional, List, Dict, Any
 from typeguard import typechecked
 from models import User, Building, Space, Reservation, ApiResponse
 
+
 @typechecked
 class UniSpaceClient:
-    BASE_URL = "http://0.0.0.0:8000/api"
+    BASE_URL = "http://127.0.0.1:8000/api"
 
     def __init__(self):
         self.session = requests.Session()
@@ -61,7 +62,7 @@ class UniSpaceClient:
             pass
         return None
 
-    def register(self, data: Dict[str, Any]) -> bool:
+    def register(self, data: Dict[str, Any]) -> ApiResponse:
         try:
             headers: Dict[str, str] = {}
 
@@ -70,10 +71,13 @@ class UniSpaceClient:
                 json=data,
                 headers=headers,
             )
-            
-            return response.status_code == 201
-        except requests.RequestException:
-            return False
+
+            if response.status_code == 201:
+                return {"success": True, "data": response.json()}
+            else:
+                return {"success": False, "error": response.text}
+        except requests.RequestException as e:
+            return {"success": False, "error": str(e)}
 
     def get_buildings(self) -> List[Building]:
         try:
@@ -112,16 +116,16 @@ class UniSpaceClient:
         return []
 
     def create_reservation(
-        self,
-        space_id: str,
-        date: str,
-        start_time: str,
-        end_time: str,
-        header: str
+            self,
+            space_id: str,
+            date: str,
+            start_time: str,
+            end_time: str,
+            header: str
     ) -> ApiResponse:
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
             return {"success": False, "error": "Invalid date format. Use YYYY-MM-DD"}
-        
+
         if not re.match(r"^\d{2}:\d{2}$", start_time) or not re.match(r"^\d{2}:\d{2}$", end_time):
             return {"success": False, "error": "Invalid time format. Use HH:MM"}
 
@@ -148,6 +152,25 @@ class UniSpaceClient:
         try:
             response = self.session.patch(
                 f"{self.BASE_URL}/reservations/{reservation_id}/cancel/",
+                json={},
+            )
+            return response.status_code == 200
+        except requests.RequestException:
+            return False
+
+    def get_all_reservations(self) -> List[Reservation]:
+        try:
+            response = self.session.get(f"{self.BASE_URL}/reservations/")
+            if response.status_code == 200:
+                return response.json()
+        except requests.RequestException:
+            pass
+        return []
+
+    def confirm_reservation(self, reservation_id: str) -> bool:
+        try:
+            response = self.session.patch(
+                f"{self.BASE_URL}/reservations/{reservation_id}/confirm/",
                 json={},
             )
             return response.status_code == 200

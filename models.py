@@ -9,6 +9,8 @@ class User(TypedDict):
     last_name: str
     date_of_birth: str  # Formato YYYY-MM-DD
     role: str  # student o professor
+    department: str  # DEMACS, DIMES, etc.
+    is_superuser: bool
 
 # Definizione Edificio
 class Building(TypedDict):
@@ -16,6 +18,7 @@ class Building(TypedDict):
     name: str
     address: str
     map_image: Optional[str]
+    department: str
 
 # Definizione Spazio / Aula
 class Space(TypedDict):
@@ -27,6 +30,7 @@ class Space(TypedDict):
     type: str  # lab, classroom, ecc.
     equipment: List[str]
     is_active: bool
+    department: str
 
 # Definizione Prenotazione
 class Reservation(TypedDict):
