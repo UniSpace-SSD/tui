@@ -81,8 +81,17 @@ def test_login_failure(client_session):
 def test_get_user_details_success(client_session):
     client, session = client_session
     client.set_token("tok")
-    user_data = {"username": "u", "email": "e@e.com", "first_name": "f", "last_name": "l",
-                 "date_of_birth": "2000-01-01", "role": "student"}
+    user_data = {
+        "pk": 1,
+        "username": "u", 
+        "email": "e@e.com", 
+        "first_name": "f", 
+        "last_name": "l",
+        "date_of_birth": "2000-01-01", 
+        "role": "student",
+        "department": "DEMACS",
+        "is_superuser": False
+    }
     session.next_response = DummyResponse(200, user_data)
     assert client.get_user_details() == user_data
 
@@ -103,25 +112,31 @@ def test_get_user_details_exception(client_session):
 
 def test_register_success(client_session):
     client, session = client_session
-    session.next_response = DummyResponse(201)
-    assert client.register({"username": "u"}) is True
+    session.next_response = DummyResponse(201, {"id": 1, "username": "testuser"})
+    result = client.register({"username": "u"})
+    assert result == {"success": True, "data": {"id": 1, "username": "testuser"}}
+    assert result["success"] is True
 
 
 def test_register_fail(client_session):
     client, session = client_session
-    session.next_response = DummyResponse(400)
-    assert client.register({"username": "u"}) is False
+    session.next_response = DummyResponse(400, text="Bad Request")
+    result = client.register({"username": "u"})
+    assert result == {"success": False, "error": "Bad Request"}
+    assert result["success"] is False
 
 
 def test_register_exception(client_session):
     client, session = client_session
-    session.side_effect_exception = requests.exceptions.RequestException()
-    assert client.register({"username": "u"}) is False
+    session.side_effect_exception = requests.exceptions.RequestException("NetErr")
+    result = client.register({"username": "u"})
+    assert result == {"success": False, "error": "NetErr"}
+    assert result["success"] is False
 
 
 def test_get_buildings_success(client_session):
     client, session = client_session
-    b = [{"id": 1, "name": "B", "address": "A", "map_image": None}]
+    b = [{"id": "1", "name": "B", "address": "A", "department": "DEMACS"}]
     session.next_response = DummyResponse(200, b)
     assert client.get_buildings() == b
 
@@ -134,9 +149,17 @@ def test_get_buildings_exception(client_session):
 
 def test_get_spaces_success(client_session):
     client, session = client_session
-    b = {"id": 1, "name": "B", "address": "A", "map_image": None}
-    s = [{"id": "s1", "name": "Space1", "building": b, "floor": 1, "capacity": 10, "type": "lab", "equipment": [],
-          "is_active": True}]
+    b = {"id": "1", "name": "B", "address": "A", "department": "DEMACS"}
+    s = [{
+        "id": "s1", 
+        "name": "Space1", 
+        "building": b, 
+        "floor": 1, 
+        "capacity": 10, 
+        "type": "lab", 
+        "department": "DEMACS",
+        "equipments": []
+    }]
     session.next_response = DummyResponse(200, s)
     assert client.get_spaces() == s
 
@@ -149,9 +172,17 @@ def test_get_spaces_exception(client_session):
 
 def test_get_space_success(client_session):
     client, session = client_session
-    b = {"id": 1, "name": "B", "address": "A", "map_image": None}
-    s = {"id": "s1", "name": "Space1", "building": b, "floor": 1, "capacity": 10, "type": "lab", "equipment": [],
-         "is_active": True}
+    b = {"id": "1", "name": "B", "address": "A", "department": "DEMACS"}
+    s = {
+        "id": "s1", 
+        "name": "Space1", 
+        "building": b, 
+        "floor": 1, 
+        "capacity": 10, 
+        "type": "lab", 
+        "department": "DEMACS",
+        "equipments": []
+    }
     session.next_response = DummyResponse(200, s)
     assert client.get_space("s1") == s
 
@@ -165,11 +196,26 @@ def test_get_space_exception(client_session):
 def test_get_my_reservations_success(client_session):
     client, session = client_session
     client.set_token("tok")
-    b = {"id": 1, "name": "B", "address": "A", "map_image": None}
-    s = {"id": "s1", "name": "S", "building": b, "floor": 1, "capacity": 10, "type": "lab", "equipment": [],
-         "is_active": True}
-    r = [{"id": "r1", "user": 1, "space": s, "start_at": "2023-01-01T10:00:00", "end_at": "2023-01-01T11:00:00",
-          "header": "H", "status": "active"}]
+    b = {"id": "1", "name": "B", "address": "A", "department": "DEMACS"}
+    s = {
+        "id": "s1", 
+        "name": "S", 
+        "building": b, 
+        "floor": 1, 
+        "capacity": 10, 
+        "type": "lab", 
+        "department": "DEMACS",
+        "equipments": []
+    }
+    r = [{
+        "id": "r1", 
+        "created_by": 1, 
+        "space": s, 
+        "start_at": "2023-01-01T10:00:00", 
+        "end_at": "2023-01-01T11:00:00",
+        "header": "H", 
+        "status": "active"
+    }]
     session.next_response = DummyResponse(200, r)
     assert client.get_my_reservations() == r
 
@@ -245,3 +291,134 @@ def test_logout_exception(client_session):
     session.side_effect_exception = requests.exceptions.RequestException()
     client.logout()
     assert client.token is None
+
+
+def test_logout_without_token(client_session):
+    client, session = client_session
+    client.token = None
+    client.logout()
+    assert client.token is None
+    assert "Authorization" not in session.headers
+
+
+def test_get_user_details_without_token(client_session):
+    client, session = client_session
+    client.token = None
+    assert client.get_user_details() is None
+
+
+def test_get_buildings_non_200_response(client_session):
+    client, session = client_session
+    session.next_response = DummyResponse(500)
+    result = client.get_buildings()
+    assert result == []
+
+
+def test_get_spaces_non_200_response(client_session):
+    client, session = client_session
+    session.next_response = DummyResponse(404)
+    result = client.get_spaces()
+    assert result == []
+
+
+def test_get_space_non_200_response(client_session):
+    client, session = client_session
+    session.next_response = DummyResponse(500)
+    result = client.get_space("s1")
+    assert result is None
+
+
+def test_get_my_reservations_non_200_response(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    session.next_response = DummyResponse(400)
+    result = client.get_my_reservations()
+    assert result == []
+
+
+def test_confirm_reservation_success(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    session.next_response = DummyResponse(200)
+    result = client.confirm_reservation("r1")
+    assert result is True
+
+
+def test_confirm_reservation_fail(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    session.next_response = DummyResponse(400)
+    result = client.confirm_reservation("r1")
+    assert result is False
+
+
+def test_confirm_reservation_exception(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    session.side_effect_exception = requests.exceptions.RequestException()
+    result = client.confirm_reservation("r1")
+    assert result is False
+
+
+def test_get_all_reservations_success(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    reservations = [
+        {
+            "id": "r1",
+            "created_by": 1,
+            "space": {"id": "s1", "name": "Space1"},
+            "start_at": "2023-01-01T10:00:00",
+            "end_at": "2023-01-01T11:00:00",
+            "header": "Meeting",
+            "status": "PENDING"
+        }
+    ]
+    session.next_response = DummyResponse(200, reservations)
+    result = client.get_all_reservations()
+    assert result == reservations
+
+
+def test_get_all_reservations_exception(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    session.side_effect_exception = requests.exceptions.RequestException()
+    result = client.get_all_reservations()
+    assert result == []
+
+
+def test_create_reservation_end_time_validation_fail(client_session):
+    client, _ = client_session
+    res = client.create_reservation("s", "2022-01-01", "10:00", "invalid", "h")
+    assert res["success"] is False
+    assert "Invalid time" in res["error"]
+
+
+def test_login_bad_status_code(client_session):
+    client, session = client_session
+    session.next_response = DummyResponse(500, {"key": "secret"})
+    assert client.login("u", "p") is False
+    assert client.token is None
+
+
+def test_register_non_201_success_status(client_session):
+    client, session = client_session
+    session.next_response = DummyResponse(200, {"id": 1, "username": "testuser"})
+    result = client.register({"username": "u"})
+    assert result["success"] is False
+    assert "error" in result
+
+
+def test_cancel_reservation_non_200_response(client_session):
+    client, session = client_session
+    client.set_token("tok")
+    session.next_response = DummyResponse(404)
+    result = client.cancel_reservation("r1")
+    assert result is False
+
+
+def test_set_token_updates_headers(client_session):
+    client, session = client_session
+    client.set_token("new_token")
+    assert client.token == "new_token"
+    assert session.headers.get("Authorization") == "Token new_token"
