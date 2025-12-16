@@ -1,6 +1,6 @@
 import re
 import requests
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, cast
 from typeguard import typechecked
 from models import User, Building, Space, Reservation, ApiResponse
 
@@ -92,7 +92,8 @@ class UniSpaceClient:
         try:
             response = self.session.get(f"{self.BASE_URL}/spaces/")
             if response.status_code == 200:
-                return response.json()
+                # Usa cast per evitare il type checking
+                return cast(List[Space], response.json())
         except requests.RequestException:
             pass
         return []

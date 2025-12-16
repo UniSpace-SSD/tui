@@ -1,6 +1,6 @@
 import datetime
 import sys
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.table import Table
@@ -140,12 +140,15 @@ def action_profile() -> None:
 def action_list_buildings() -> None:
     buildings: List[Building] = client.get_buildings()
     table = Table(title="Buildings")
+    table.add_column("ID", style="dim", max_width=8, overflow="ellipsis")
     table.add_column("Name", style="green")
     table.add_column("Department", style="cyan")
     table.add_column("Address", style="white")
 
     for b in buildings:
-        table.add_row(b.get('name', 'N/A'), b.get('department', 'N/A'), b.get('address', 'N/A'))
+        building_id = b.get('id', '')
+        short_id = building_id[:8] + "..." if len(building_id) > 8 else building_id
+        table.add_row(short_id, b.get('name', 'N/A'), b.get('department', 'N/A'), b.get('address', 'N/A'))
 
     console.print(table)
     wait_enter()
@@ -154,6 +157,7 @@ def action_list_buildings() -> None:
 def action_list_spaces() -> None:
     spaces: List[Space] = client.get_spaces()
     table = Table(title="Spaces")
+    table.add_column("ID", style="dim", max_width=8, overflow="ellipsis")
     table.add_column("Building", style="cyan")
     table.add_column("Name", style="green")
     table.add_column("Type", style="yellow")
@@ -161,9 +165,22 @@ def action_list_spaces() -> None:
     table.add_column("Capacity", justify="right")
 
     for s in spaces:
-        b_name = s['building'].get('name', 'N/A') if isinstance(s.get('building'), dict) else str(s.get('building'))
-        table.add_row(b_name, s.get('name', 'Unknown'), s.get('type', 'Unknown'), s.get('department', 'N/A'),
-                      str(s.get('capacity', 0)))
+        space_id = s.get('id', '')
+        short_id = space_id[:8] + "..." if len(space_id) > 8 else space_id
+        
+        if isinstance(s.get('building'), dict):
+            b_name = s['building'].get('name', 'N/A')
+        else:
+            b_name = str(s.get('building', 'Unknown'))
+        
+        table.add_row(
+            short_id,
+            b_name, 
+            s.get('name', 'Unknown'), 
+            s.get('type', 'Unknown'), 
+            s.get('department', 'N/A'),  
+            str(s.get('capacity', 0))
+        )
 
     console.print(table)
     wait_enter()
@@ -182,6 +199,9 @@ def action_my_reservations() -> None:
         table.add_column("Status", style="bold")
 
         for r in res:
+            reservation_id = r.get('id', '')
+            short_id = reservation_id[:8] + "..." if len(reservation_id) > 8 else reservation_id
+            
             start = r.get('start_at', '').replace('T', ' ')[:16]
             end = r.get('end_at', '').replace('T', ' ')[:16]
 
@@ -191,7 +211,7 @@ def action_my_reservations() -> None:
                 space_display = space_val.get('name', 'Unknown Space')
 
             table.add_row(
-                r.get('id', ''),
+                short_id,
                 str(space_display),
                 f"{start} -> {end}",
                 r.get('header', ''),
@@ -200,7 +220,34 @@ def action_my_reservations() -> None:
         console.print(table)
 
         if Prompt.ask("Cancel a reservation?", choices=["y", "n"], default="n") == "y":
-            rid = Prompt.ask("Enter Reservation ID to cancel")
+            # Filtra solo le prenotazioni PENDING dell'utente corrente
+            pending_reservations = [r for r in res if r.get('status', '').upper() == 'PENDING']
+            
+            if not pending_reservations:
+                console.print("[yellow]There are no reservations to cancel at the moment (no PENDING reservations).[/yellow]")
+                wait_enter()
+                return
+            
+            # Mostra solo gli ID delle prenotazioni PENDING
+            console.print(f"\n[bold]Available PENDING reservation IDs for cancellation:[/bold]")
+            for r in pending_reservations:
+                reservation_id = r.get('id', '')
+                start = r.get('start_at', '').replace('T', ' ')[:16]
+                space_name = "Unknown"
+                if isinstance(r.get('space'), dict):
+                    space_name = r.get('space', {}).get('name', 'Unknown')
+                
+                console.print(f"  [cyan]{reservation_id}[/cyan] - Space: {space_name}, Time: {start}, Reason: {r.get('header', 'N/A')}")
+            
+            rid = Prompt.ask("\nEnter full Reservation ID to cancel")
+            
+            # Verifica che l'ID inserito sia tra quelli PENDING
+            pending_ids = [r.get('id') for r in pending_reservations]
+            if rid not in pending_ids:
+                console.print("[red]Invalid ID or reservation is not in PENDING status.[/red]")
+                wait_enter()
+                return
+            
             if client.cancel_reservation(rid):
                 console.print("[green]Reservation cancelled.[/green]")
             else:
@@ -218,7 +265,9 @@ def action_create_reservation() -> None:
 
     console.print("[bold]Select a Space:[/bold]")
     for i, s in enumerate(spaces):
-        print(f"{i + 1}. {s.get('name')} ({s.get('type')})")
+        space_id = s.get('id', '')
+        short_id = space_id[:8] + "..." if len(space_id) > 8 else space_id
+        print(f"{i + 1}. [{short_id}] {s.get('name')} ({s.get('type')})")
 
     try:
         idx = int(Prompt.ask("Choice", default="1")) - 1
@@ -228,7 +277,7 @@ def action_create_reservation() -> None:
         space_id = spaces[idx]['id']
         space_name = spaces[idx]['name']
 
-        console.print(f"Selected: [green]{space_name}[/green]")
+        console.print(f"Selected: [green]{space_name}[/green] (ID: {space_id})")
 
         date = get_validated_input("Date (YYYY-MM-DD)", r"^\d{4}-\d{2}-\d{2}$", "Invalid format. Use YYYY-MM-DD")
         start = get_validated_input("Start Time (HH:MM)", r"^\d{2}:\d{2}$", "Invalid format. Use HH:MM")
@@ -260,6 +309,9 @@ def action_manage_reservations() -> None:
         table.add_column("Status", style="bold")
 
         for r in res:
+            reservation_id = r.get('id', '')
+            short_id = reservation_id[:8] + "..." if len(reservation_id) > 8 else reservation_id
+            
             start = r.get('start_at', '').replace('T', ' ')[:16]
             end = r.get('end_at', '').replace('T', ' ')[:16]
 
@@ -269,10 +321,13 @@ def action_manage_reservations() -> None:
                 space_display = space_val.get('name', 'Unknown Space')
 
             user_val = r.get('created_by')
+            user_display = user_val
+            if isinstance(user_val, dict):
+                user_display = user_val.get('username', 'Unknown User')
 
             table.add_row(
-                r.get('id', ''),
-                str(user_val),
+                short_id,
+                str(user_display),
                 str(space_display),
                 f"{start} -> {end}",
                 r.get('status', 'unknown')
@@ -280,18 +335,42 @@ def action_manage_reservations() -> None:
         console.print(table)
 
         action = Prompt.ask("Action", choices=["confirm", "cancel", "back"], default="back")
-        if action == "confirm":
-            rid = Prompt.ask("Enter Reservation ID to confirm")
-            if client.confirm_reservation(rid):
-                console.print("[green]Reservation confirmed.[/green]")
-            else:
-                console.print("[red]Failed to confirm.[/red]")
-        elif action == "cancel":
-            rid = Prompt.ask("Enter Reservation ID to cancel")
-            if client.cancel_reservation(rid):
-                console.print("[green]Reservation cancelled.[/green]")
-            else:
-                console.print("[red]Failed to cancel.[/red]")
+        if action in ["confirm", "cancel"]:
+            # Filtra solo le prenotazioni con status PENDING
+            pending_reservations = [r for r in res if r.get('status', '').upper() == 'PENDING']
+            
+            if not pending_reservations:
+                console.print(f"[yellow]There are no reservations to {action} at the moment (no PENDING reservations).[/yellow]")
+                wait_enter()
+                return
+            
+            # Mostra solo gli ID delle prenotazioni PENDING
+            console.print(f"\n[bold]Available PENDING reservation IDs for {action}:[/bold]")
+            for r in pending_reservations:
+                reservation_id = r.get('id', '')
+                start = r.get('start_at', '').replace('T', ' ')[:16]
+                
+                console.print(f"  [cyan]{reservation_id}[/cyan] - Time: {start}")
+            
+            rid = Prompt.ask(f"\nEnter full Reservation ID to {action}")
+            
+            # Verifica che l'ID inserito sia tra quelli PENDING
+            pending_ids = [r.get('id') for r in pending_reservations]
+            if rid not in pending_ids:
+                console.print("[red]Invalid ID or reservation is not in PENDING status.[/red]")
+                wait_enter()
+                return
+            
+            if action == "confirm":
+                if client.confirm_reservation(rid):
+                    console.print("[green]Reservation confirmed.[/green]")
+                else:
+                    console.print("[red]Failed to confirm.[/red]")
+            elif action == "cancel":
+                if client.cancel_reservation(rid):
+                    console.print("[green]Reservation cancelled.[/green]")
+                else:
+                    console.print("[red]Failed to cancel.[/red]")
 
     wait_enter()
 
@@ -349,4 +428,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

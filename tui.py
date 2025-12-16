@@ -1,6 +1,5 @@
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Callable, Optional, Tuple, List
-from requests import __description__
 from typeguard import typechecked
 from rich.console import Console
 from rich.table import Table
